@@ -94,9 +94,8 @@ export const getPublicationById = async (req: Request, res: Response) => {
   }
 };
 
-
 export const getAllPublications = async (req: Request, res: Response) => {
-  const { title, description, type, category, location, date } = req.query;
+  const { search, category, type } = req.query;
 
   const whereClauses: string[] = [];
   const values: any[] = [];
@@ -106,14 +105,19 @@ export const getAllPublications = async (req: Request, res: Response) => {
     whereClauses.push(`${field} ${operator} $${values.length}`);
   };
 
-  if (title) addFilter('p.title', title);
-  if (description) addFilter('p.description', description);
-  if (type) addFilter('p.type', type);
-  if (category) addFilter('p.category', category);
-  if (location) addFilter('p.location', location);
-  if (date) {
-    values.push(date);
-    whereClauses.push(`DATE(p.created_at) = $${values.length}`);
+  if (search) {
+    values.push(`%${search}%`);
+    whereClauses.push(`(p.title ILIKE $${values.length} OR p.description ILIKE $${values.length})`);
+  }
+
+  if (category && category !== "all") {
+    values.push(category);
+    whereClauses.push(`p.category = $${values.length}`);
+  }
+
+  if (type && type !== "all") {
+    values.push(type);
+    whereClauses.push(`p.type = $${values.length}`);
   }
 
   const whereSQL = whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : '';

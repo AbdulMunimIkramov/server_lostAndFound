@@ -15,3 +15,4 @@ export const createNotification = async (
     console.error('Ошибка при создании уведомления:', err);
   }
 };
+

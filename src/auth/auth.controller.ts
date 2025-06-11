@@ -106,4 +106,3 @@ export const getCurrentUser = async (req: AuthRequest, res: Response): Promise<R
     return res.status(500).json({ message: 'Внутренняя ошибка сервера' });
   }
 };
-
