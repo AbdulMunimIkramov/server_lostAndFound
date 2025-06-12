@@ -1,6 +1,6 @@
-# Node modules
 node_modules/
-
+build/
+.env
 # Logs
 logs
 *.log
@@ -23,8 +23,8 @@ pids
 *.sqlite3
 *.db
 
-# Uploaded files
 uploads/
+*.log
 
 # OS-specific
 .DS_Store
