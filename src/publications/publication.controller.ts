@@ -67,7 +67,10 @@ export const getPublicationById = async (req: Request, res: Response) => {
 
   try {
     const pubResult = await pool.query(
-      `SELECT * FROM publications WHERE id = $1`,
+      `SELECT p.*, u.name AS user_name 
+       FROM publications p 
+       LEFT JOIN users u ON p.user_id = u.id 
+       WHERE p.id = $1`,
       [id]
     );
 
@@ -84,7 +87,7 @@ export const getPublicationById = async (req: Request, res: Response) => {
 
     const publication = {
       ...pubResult.rows[0],
-      images,  // добавляем поле images внутрь публикации
+      images,
     };
 
     res.json({ publication });
@@ -97,7 +100,7 @@ export const getPublicationById = async (req: Request, res: Response) => {
 export const getAllPublications = async (req: Request, res: Response) => {
   const { search, category, type } = req.query;
 
-  const whereClauses: string[] = [];
+  const whereClauses: string[] = ['p.is_resolved = FALSE'];
   const values: any[] = [];
 
   const addFilter = (field: string, value: any, operator = 'ILIKE') => {
@@ -127,11 +130,13 @@ export const getAllPublications = async (req: Request, res: Response) => {
       `
       SELECT 
         p.*, 
+        u.name AS user_name,
         COALESCE(json_agg(i.filename) FILTER (WHERE i.filename IS NOT NULL), '[]') AS images
       FROM publications p
       LEFT JOIN images i ON p.id = i.publication_id
+      LEFT JOIN users u ON p.user_id = u.id
       ${whereSQL}
-      GROUP BY p.id
+      GROUP BY p.id, u.name
       ORDER BY p.created_at DESC
       `,
       values
@@ -156,7 +161,6 @@ export const closePublication = async (req: Request & { userId?: number }, res: 
   const userId = req.userId;
 
   try {
-    // Проверим, что публикация принадлежит пользователю
     const checkResult = await pool.query(
       'SELECT user_id FROM publications WHERE id = $1',
       [publicationId]
@@ -171,7 +175,6 @@ export const closePublication = async (req: Request & { userId?: number }, res: 
       return res.status(403).json({ message: 'Нет доступа' });
     }
 
-    // Обновим статус
     await pool.query(
       'UPDATE publications SET is_resolved = TRUE WHERE id = $1',
       [publicationId]
@@ -183,33 +186,79 @@ export const closePublication = async (req: Request & { userId?: number }, res: 
     res.status(500).json({ message: 'Ошибка сервера' });
   }
 };
+
+export const reopenPublication = async (req: Request & { userId?: number }, res: Response) => {
+  const publicationId = req.params.id;
+  const userId = req.userId;
+
+  try {
+    const checkResult = await pool.query(
+      'SELECT user_id, is_resolved FROM publications WHERE id = $1',
+      [publicationId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Публикация не найдена' });
+    }
+
+    const publication = checkResult.rows[0];
+    if (publication.user_id !== userId) {
+      return res.status(403).json({ message: 'Нет доступа' });
+    }
+
+    if (!publication.is_resolved) {
+      return res.status(400).json({ message: 'Публикация уже активна' });
+    }
+
+    await pool.query(
+      'UPDATE publications SET is_resolved = FALSE WHERE id = $1',
+      [publicationId]
+    );
+
+    res.json({ message: 'Публикация активирована' });
+  } catch (error) {
+    console.error('Ошибка при активации публикации:', error);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+};
+
 export const getPublications = async (req: Request, res: Response) => {
   const { search } = req.query;
 
   try {
-    let query = 'SELECT * FROM publications ORDER BY created_at DESC';
+    let query = `
+      SELECT p.*, u.name AS user_name,
+      COALESCE(json_agg(i.filename) FILTER (WHERE i.filename IS NOT NULL), '[]') AS images
+      FROM publications p
+      LEFT JOIN images i ON p.id = i.publication_id
+      LEFT JOIN users u ON p.user_id = u.id
+      WHERE p.is_resolved = FALSE
+      GROUP BY p.id, u.name
+      ORDER BY p.created_at DESC
+    `;
     const values: any[] = [];
 
     if (search) {
       query = `
-        SELECT * FROM publications
-        WHERE title ILIKE $1 OR description ILIKE $1
-        ORDER BY created_at DESC
+        SELECT p.*, u.name AS user_name,
+        COALESCE(json_agg(i.filename) FILTER (WHERE i.filename IS NOT NULL), '[]') AS images
+        FROM publications p
+        LEFT JOIN images i ON p.id = i.publication_id
+        LEFT JOIN users u ON p.user_id = u.id
+        WHERE (p.title ILIKE $1 OR p.description ILIKE $1) AND p.is_resolved = FALSE
+        GROUP BY p.id, u.name
+        ORDER BY p.created_at DESC
       `;
       values.push(`%${search}%`);
     }
 
     const result = await pool.query(query, values);
-    const publications = result.rows;
-
-    // Здесь можно добавить загрузку изображений, если нужно
-    for (const pub of publications) {
-      const imagesResult = await pool.query(
-        'SELECT url FROM publication_images WHERE publication_id = $1',
-        [pub.id]
-      );
-      pub.images = imagesResult.rows.map((r) => r.url);
-    }
+    const publications = result.rows.map(row => ({
+      ...row,
+      images: row.images.map((filename: string) =>
+        `${req.protocol}://${req.get('host')}/uploads/${filename}`
+      )
+    }));
 
     res.json({ publications });
   } catch (error) {
@@ -224,7 +273,6 @@ export const updatePublication = async (req: Request & { userId?: number }, res:
   const { title, description, category, type, phone, location } = req.body;
 
   try {
-    // Проверяем, что публикация принадлежит пользователю
     const checkResult = await pool.query(
       'SELECT user_id FROM publications WHERE id = $1',
       [publicationId]
@@ -240,7 +288,6 @@ export const updatePublication = async (req: Request & { userId?: number }, res:
 
     const locationString = typeof location === 'string' ? location : JSON.stringify(location);
 
-    // Обновляем публикацию
     const result = await pool.query(
       `UPDATE publications 
        SET title = $1, description = $2, category = $3, type = $4, phone = $5, location = $6
@@ -252,6 +299,43 @@ export const updatePublication = async (req: Request & { userId?: number }, res:
     res.json({ publication: result.rows[0] });
   } catch (error) {
     console.error('Ошибка при обновлении публикации:', error);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+};
+
+export const deletePublication = async (req: Request & { userId?: number }, res: Response) => {
+  const publicationId = req.params.id;
+  const userId = req.userId;
+
+  try {
+    const checkResult = await pool.query(
+      'SELECT user_id FROM publications WHERE id = $1',
+      [publicationId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Публикация не найдена' });
+    }
+
+    if (checkResult.rows[0].user_id !== userId) {
+      return res.status(403).json({ message: 'Нет доступа' });
+    }
+
+    // Удаляем связанные изображения
+    await pool.query(
+      'DELETE FROM images WHERE publication_id = $1',
+      [publicationId]
+    );
+
+    // Удаляем публикацию
+    await pool.query(
+      'DELETE FROM publications WHERE id = $1',
+      [publicationId]
+    );
+
+    res.json({ message: 'Публикация удалена' });
+  } catch (error) {
+    console.error('Ошибка при удалении публикации:', error);
     res.status(500).json({ message: 'Ошибка сервера' });
   }
 };

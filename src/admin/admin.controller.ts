@@ -3,24 +3,34 @@ import pool from '../db';
 
 export const getUsers = async (_req: Request, res: Response) => {
   try {
-    const result = await pool.query(
-      'SELECT id, name, email, is_admin, created_at FROM users ORDER BY id;'
-    );
+    const result = await pool.query(`
+      SELECT 
+        u.id, 
+        u.name, 
+        u.email, 
+        u.is_admin, 
+        u.is_blocked,
+        u.created_at,
+        (SELECT COUNT(*) FROM reports r WHERE r.reported_user_id = u.id) as report_count
+      FROM users u 
+      ORDER BY report_count DESC
+    `);
     res.json(result.rows);
   } catch (error) {
     console.error('Ошибка получения пользователей:', error);
     res.status(500).json({ message: 'Ошибка сервера' });
   }
 };
-
 export const blockUserByAdmin = async (req: Request, res: Response) => {
   const userId = req.params.id;
 
   try {
-    await pool.query(
-      'UPDATE users SET is_blocked = TRUE WHERE id = $1',
-      [userId]
-    );
+    const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Пользователь не найден' });
+    }
+
+    await pool.query('UPDATE users SET is_blocked = TRUE WHERE id = $1', [userId]);
     res.json({ message: 'Пользователь заблокирован' });
   } catch (error) {
     console.error('Ошибка блокировки:', error);
@@ -28,9 +38,32 @@ export const blockUserByAdmin = async (req: Request, res: Response) => {
   }
 };
 
+export const unblockUserByAdmin = async (req: Request, res: Response) => {
+  const userId = req.params.id;
+
+  try {
+    const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Пользователь не найден' });
+    }
+
+    await pool.query('UPDATE users SET is_blocked = FALSE WHERE id = $1', [userId]);
+    res.json({ message: 'Пользователь разблокирован' });
+  } catch (error) {
+    console.error('Ошибка разблокировки:', error);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+};
+
 export const getAllPublications = async (_req: Request, res: Response) => {
   try {
-    const result = await pool.query('SELECT * FROM publications ORDER BY created_at DESC');
+    const result = await pool.query(`
+      SELECT 
+        p.*,
+        (SELECT COUNT(*) FROM reports r WHERE r.publication_id = p.id) as report_count
+      FROM publications p 
+      ORDER BY report_count DESC
+    `);
     res.json(result.rows);
   } catch (error) {
     console.error('Ошибка получения публикаций:', error);
@@ -76,12 +109,13 @@ export const getReports = async (_req: Request, res: Response) => {
         r.publication_id,
         u1.name AS reporter_name,
         u2.name AS reported_user_name,
+        u2.is_blocked AS reported_user_blocked,
         p.title AS publication_title
       FROM reports r
       LEFT JOIN users u1 ON r.reporter_id = u1.id
       LEFT JOIN users u2 ON r.reported_user_id = u2.id
       LEFT JOIN publications p ON r.publication_id = p.id
-      ORDER BY r.id DESC;
+      ORDER BY r.id DESC
     `);
     res.json(result.rows);
   } catch (error) {

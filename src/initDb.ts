@@ -1,9 +1,9 @@
 import pool from './db';
 
 export async function initDb() {
-    try {
-        // Создание таблицы пользователей
-        await pool.query(`
+  try {
+    // Создание таблицы пользователей
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
@@ -15,8 +15,8 @@ export async function initDb() {
       );
     `);
 
-        // Создание таблицы публикаций
-        await pool.query(`
+    // Создание таблицы публикаций
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS publications (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -31,14 +31,14 @@ export async function initDb() {
       );
     `);
 
-        await pool.query(`
+    await pool.query(`
   CREATE TABLE IF NOT EXISTS images (
     id SERIAL PRIMARY KEY,
     publication_id INTEGER REFERENCES publications(id) ON DELETE CASCADE,
     filename TEXT NOT NULL
   );
 `);
- await pool.query(`CREATE TABLE IF NOT EXISTS chats (
+    await pool.query(`CREATE TABLE IF NOT EXISTS chats (
   id SERIAL PRIMARY KEY,
   publication_id INTEGER REFERENCES publications(id) ON DELETE CASCADE,
   sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -47,7 +47,7 @@ export async function initDb() {
   UNIQUE (publication_id, sender_id, receiver_id)
 );
 `);
- await pool.query(`CREATE TABLE IF NOT EXISTS messages (
+    await pool.query(`CREATE TABLE IF NOT EXISTS messages (
   id SERIAL PRIMARY KEY,
   chat_id INTEGER REFERENCES chats(id) ON DELETE CASCADE,
   sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -56,7 +56,7 @@ export async function initDb() {
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 `);
-await pool.query(`CREATE TABLE IF NOT EXISTS reports (
+    await pool.query(`CREATE TABLE IF NOT EXISTS reports (
   id SERIAL PRIMARY KEY,
   reporter_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   reported_user_id INTEGER REFERENCES users(id),
@@ -65,7 +65,7 @@ await pool.query(`CREATE TABLE IF NOT EXISTS reports (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 `);
-await pool.query(`CREATE TABLE IF NOT EXISTS blocked_users (
+    await pool.query(`CREATE TABLE IF NOT EXISTS blocked_users (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   blocked_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -73,7 +73,7 @@ await pool.query(`CREATE TABLE IF NOT EXISTS blocked_users (
   UNIQUE (user_id, blocked_user_id)
 );
 `);
-await pool.query(`CREATE TABLE IF NOT EXISTS notifications (
+    await pool.query(`CREATE TABLE IF NOT EXISTS notifications (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   type TEXT NOT NULL, -- message, match, reply и т.д.
@@ -83,7 +83,7 @@ await pool.query(`CREATE TABLE IF NOT EXISTS notifications (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 `);
-await pool.query(`CREATE TABLE IF NOT EXISTS public.ads
+    await pool.query(`CREATE TABLE IF NOT EXISTS public.ads
 (
     id serial NOT NULL,
     title character varying(255) COLLATE pg_catalog."default" NOT NULL,
@@ -92,11 +92,24 @@ await pool.query(`CREATE TABLE IF NOT EXISTS public.ads
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ads_pkey PRIMARY KEY (id)
 );`);
-await pool.query(``);
+    await pool.query(`ALTER TABLE users
+ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE;`);
+    await pool.query(`ALTER TABLE reports DROP CONSTRAINT reports_publication_id_fkey;
+
+ALTER TABLE reports
+ADD CONSTRAINT reports_publication_id_fkey
+FOREIGN KEY (publication_id)
+REFERENCES publications(id)
+ON DELETE CASCADE;
+`);
+    await pool.query(``);
+    await pool.query(``);
+    await pool.query(``);
+    await pool.query(``);
 
 
-        console.log('✅ Таблицы успешно созданы (если не существовали)');
-    } catch (error) {
-        console.error('❌ Ошибка при создании таблиц:', error);
-    }
+    console.log('✅ Таблицы успешно созданы (если не существовали)');
+  } catch (error) {
+    console.error('❌ Ошибка при создании таблиц:', error);
+  }
 }

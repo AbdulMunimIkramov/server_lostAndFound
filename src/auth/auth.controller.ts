@@ -63,7 +63,9 @@ export const login = async (req: Request<{}, {}, LoginRequestBody>, res: Respons
     if (!user) {
       return res.status(401).json({ message: 'Неверный email или пароль' });
     }
-
+    if (user.is_blocked) {
+      return res.status(403).json({ message: 'Ваш аккаунт заблокирован администрацией' });
+    }
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ message: 'Неверный email или пароль' });

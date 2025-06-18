@@ -1,14 +1,10 @@
 import { Router } from 'express';
-import { createPublication, updatePublication } from './publication.controller';
+import { createPublication, uploadImages, getPublicationById, getAllPublications, closePublication, reopenPublication, updatePublication, deletePublication } from './publication.controller';
 import { authMiddleware } from '../auth/auth.middleware';
 import { upload } from '../upload';
-import { uploadImages } from './publication.controller';
-import { getAllPublications, getPublicationById } from './publication.controller';
-import { closePublication } from './publication.controller';
 
 const router = Router();
 
-// 🔐 Только для авторизованных пользователей
 router.post('/', authMiddleware, createPublication);
 
 router.post(
@@ -22,5 +18,8 @@ router.get('/', getAllPublications);
 router.get('/:id', getPublicationById);
 
 router.post('/:id/close', authMiddleware, closePublication);
+router.post('/:id/reopen', authMiddleware, reopenPublication);
 router.put('/:id', authMiddleware, updatePublication);
+router.delete('/:id', authMiddleware, deletePublication);
+
 export default router;
