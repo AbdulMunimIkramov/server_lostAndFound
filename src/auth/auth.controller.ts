@@ -3,7 +3,7 @@ import pool from '../db';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
 
 // Определите структуру тела запроса
 interface RegisterRequestBody {

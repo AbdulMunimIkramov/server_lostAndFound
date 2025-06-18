@@ -83,7 +83,15 @@ await pool.query(`CREATE TABLE IF NOT EXISTS notifications (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 `);
-await pool.query(``);
+await pool.query(`CREATE TABLE IF NOT EXISTS public.ads
+(
+    id serial NOT NULL,
+    title character varying(255) COLLATE pg_catalog."default" NOT NULL,
+    image_url text COLLATE pg_catalog."default" NOT NULL,
+    link text COLLATE pg_catalog."default",
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ads_pkey PRIMARY KEY (id)
+);`);
 await pool.query(``);
 
 

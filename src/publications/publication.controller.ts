@@ -217,3 +217,41 @@ export const getPublications = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Ошибка сервера' });
   }
 };
+
+export const updatePublication = async (req: Request & { userId?: number }, res: Response) => {
+  const publicationId = req.params.id;
+  const userId = req.userId;
+  const { title, description, category, type, phone, location } = req.body;
+
+  try {
+    // Проверяем, что публикация принадлежит пользователю
+    const checkResult = await pool.query(
+      'SELECT user_id FROM publications WHERE id = $1',
+      [publicationId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Публикация не найдена' });
+    }
+
+    if (checkResult.rows[0].user_id !== userId) {
+      return res.status(403).json({ message: 'Нет доступа' });
+    }
+
+    const locationString = typeof location === 'string' ? location : JSON.stringify(location);
+
+    // Обновляем публикацию
+    const result = await pool.query(
+      `UPDATE publications 
+       SET title = $1, description = $2, category = $3, type = $4, phone = $5, location = $6
+       WHERE id = $7
+       RETURNING *`,
+      [title, description, category, type, phone, locationString, publicationId]
+    );
+
+    res.json({ publication: result.rows[0] });
+  } catch (error) {
+    console.error('Ошибка при обновлении публикации:', error);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+};

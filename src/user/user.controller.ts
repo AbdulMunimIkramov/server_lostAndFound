@@ -36,7 +36,10 @@ export const getMyProfile = async (req: Request & { userId?: number }, res: Resp
   const userId = req.userId;
 
   try {
-    const result = await pool.query('SELECT id, name, email, is_admin, created_at FROM users WHERE id = $1', [userId]);
+    const result = await pool.query(
+      'SELECT id, name, email, phone, is_admin, created_at FROM users WHERE id = $1',
+      [userId]
+    );
     const user = result.rows[0];
 
     if (!user) {
@@ -52,12 +55,12 @@ export const getMyProfile = async (req: Request & { userId?: number }, res: Resp
 
 export const updateMyProfile = async (req: Request & { userId?: number }, res: Response) => {
   const userId = req.userId;
-  const { name, email } = req.body;
+  const { name, email, phone } = req.body;
 
   try {
     await pool.query(
-      'UPDATE users SET name = $1, email = $2 WHERE id = $3',
-      [name, email, userId]
+      'UPDATE users SET name = $1, email = $2, phone = $3 WHERE id = $4',
+      [name, email, phone, userId]
     );
 
     res.json({ message: 'Профиль обновлён' });

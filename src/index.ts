@@ -62,6 +62,7 @@ type SocketWithUser = WebSocket & { userId?: number };
 const clients = new Map<number, SocketWithUser>();
 
 wss.on('connection', (ws: SocketWithUser, req) => {
+  console.log("ws", ws, "req" , req)
   const url = new URL(req.url || '', 'http://localhost');
   const userId = parseInt(url.searchParams.get('userId') || '');
 

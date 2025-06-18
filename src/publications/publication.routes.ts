@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createPublication } from './publication.controller';
+import { createPublication, updatePublication } from './publication.controller';
 import { authMiddleware } from '../auth/auth.middleware';
 import { upload } from '../upload';
 import { uploadImages } from './publication.controller';
@@ -22,5 +22,5 @@ router.get('/', getAllPublications);
 router.get('/:id', getPublicationById);
 
 router.post('/:id/close', authMiddleware, closePublication);
-
+router.put('/:id', authMiddleware, updatePublication);
 export default router;
